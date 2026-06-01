@@ -1,0 +1,219 @@
+{% extends 'base.html' %}
+{% block title %}Analytics{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<h4 class="fw-bold mb-4"><i class="bi bi-bar-chart-line me-2 text-danger"></i>Analytics &amp; Insights</h4>
+
+<!-- Totals -->
+<div class="row g-3 mb-4" id="totals-row">
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="fs-2 fw-bold text-danger" id="t-reports">—</div>
+      <div class="text-muted small">Total Reports</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="fs-2 fw-bold text-warning" id="t-alerts">—</div>
+      <div class="text-muted small">Alerts Generated</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="fs-2 fw-bold text-primary" id="t-sos">—</div>
+      <div class="text-muted small">SOS Sent</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="fs-2 fw-bold text-success" id="t-resolved">—</div>
+      <div class="text-muted small">SOS Resolved</div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts row 1 -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold border-0 pt-3">
+        <i class="bi bi-graph-up me-2 text-danger"></i>Reports Over Last 7 Days
+      </div>
+      <div class="card-body"><canvas id="dailyChart" height="100"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold border-0 pt-3">
+        <i class="bi bi-pie-chart me-2 text-danger"></i>Severity Breakdown
+      </div>
+      <div class="card-body d-flex align-items-center justify-content-center">
+        <canvas id="severityChart" height="180"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts row 2 -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold border-0 pt-3">
+        <i class="bi bi-bar-chart me-2 text-danger"></i>Disaster Types
+      </div>
+      <div class="card-body"><canvas id="typeChart" height="160"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold border-0 pt-3">
+        <i class="bi bi-boxes me-2 text-danger"></i>Resources Used
+      </div>
+      <div class="card-body"><canvas id="resourceChart" height="160"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- SOS breakdown -->
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold border-0 pt-3">
+        <i class="bi bi-sos me-2 text-danger"></i>SOS by Type
+      </div>
+      <div class="card-body d-flex align-items-center justify-content-center">
+        <canvas id="sosChart" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold border-0 pt-3">
+        <i class="bi bi-activity me-2 text-danger"></i>SOS Status
+      </div>
+      <div class="card-body">
+        <div class="row g-3 text-center">
+          <div class="col-4">
+            <div class="fs-2 fw-bold text-primary" id="sos-total">—</div>
+            <div class="text-muted small">Total SOS</div>
+          </div>
+          <div class="col-4">
+            <div class="fs-2 fw-bold text-warning" id="sos-active">—</div>
+            <div class="text-muted small">Active</div>
+          </div>
+          <div class="col-4">
+            <div class="fs-2 fw-bold text-success" id="sos-resolved">—</div>
+            <div class="text-muted small">Resolved</div>
+          </div>
+        </div>
+        <div class="mt-3">
+          <canvas id="sosStatusChart" height="120"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const COLORS = {
+  danger:  '#dc3545', warning: '#ffc107', success: '#198754',
+  primary: '#0d6efd', info:    '#0dcaf0', secondary:'#6c757d',
+  orange:  '#fd7e14', purple:  '#6f42c1',
+};
+const PALETTE = Object.values(COLORS);
+
+async function loadAnalytics() {
+  const res  = await fetch('/api/analytics/summary');
+  const data = await res.json();
+
+  // Totals
+  document.getElementById('t-reports').textContent  = data.totals.reports;
+  document.getElementById('t-alerts').textContent   = data.totals.alerts;
+  document.getElementById('t-sos').textContent      = data.totals.sos;
+  document.getElementById('t-resolved').textContent = data.sos.resolved;
+  document.getElementById('sos-total').textContent    = data.sos.total;
+  document.getElementById('sos-active').textContent   = data.sos.active;
+  document.getElementById('sos-resolved').textContent = data.sos.resolved;
+
+  // Daily line chart
+  new Chart(document.getElementById('dailyChart'), {
+    type: 'line',
+    data: {
+      labels: Object.keys(data.daily).map(d => d.slice(5)),
+      datasets: [{
+        label: 'Reports',
+        data: Object.values(data.daily),
+        borderColor: COLORS.danger,
+        backgroundColor: 'rgba(220,53,69,.1)',
+        fill: true, tension: .4, pointRadius: 5,
+      }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+  });
+
+  // Severity doughnut
+  new Chart(document.getElementById('severityChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['High', 'Medium', 'Low'],
+      datasets: [{ data: [data.severity.High, data.severity.Medium, data.severity.Low],
+                   backgroundColor: [COLORS.danger, COLORS.warning, COLORS.success], borderWidth: 2 }]
+    },
+    options: { plugins: { legend: { position: 'bottom' } }, cutout: '65%' }
+  });
+
+  // Disaster types bar
+  new Chart(document.getElementById('typeChart'), {
+    type: 'bar',
+    data: {
+      labels: Object.keys(data.types),
+      datasets: [{ label: 'Count', data: Object.values(data.types),
+                   backgroundColor: PALETTE.slice(0, Object.keys(data.types).length), borderRadius: 6 }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+  });
+
+  // Resources horizontal bar
+  const rLabels = Object.keys(data.resource_used).map(k => k.replace('_',' '));
+  new Chart(document.getElementById('resourceChart'), {
+    type: 'bar',
+    data: {
+      labels: rLabels,
+      datasets: [{ label: 'Used', data: Object.values(data.resource_used),
+                   backgroundColor: [COLORS.primary, COLORS.success, COLORS.warning, COLORS.info], borderRadius: 6 }]
+    },
+    options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+  });
+
+  // SOS types polar
+  new Chart(document.getElementById('sosChart'), {
+    type: 'polarArea',
+    data: {
+      labels: Object.keys(data.sos_types),
+      datasets: [{ data: Object.values(data.sos_types),
+                   backgroundColor: PALETTE.map(c => c + 'cc') }]
+    },
+    options: { plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } } }
+  });
+
+  // SOS status bar
+  new Chart(document.getElementById('sosStatusChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Active', 'Resolved'],
+      datasets: [{ data: [data.sos.active, data.sos.resolved],
+                   backgroundColor: [COLORS.warning, COLORS.success], borderRadius: 8 }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+  });
+}
+
+loadAnalytics();
+</script>
+{% endblock %}

@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+{% block title %}SOS Alerts{% endblock %}
+
+{% block head %}
+<style>
+  .sos-row-active   { border-left:4px solid #dc3545 !important; }
+  .sos-row-resolved { border-left:4px solid #198754 !important; opacity:.75; }
+  .pulse-dot {
+    width:10px;height:10px;border-radius:50%;background:#dc3545;
+    display:inline-block;animation:pulse-dot 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse-dot{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.5);opacity:.5;}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h4 class="fw-bold mb-0">
+      <i class="bi bi-sos me-2 text-danger"></i>SOS Alerts
+      {% if active_count > 0 %}
+        <span class="badge bg-danger ms-2">{{ active_count }} Active</span>
+      {% endif %}
+    </h4>
+    <small class="text-muted">All incoming SOS emergency requests</small>
+  </div>
+  <a href="{{ url_for('sos.submit') }}" class="btn btn-danger fw-bold">
+    <i class="bi bi-sos me-1"></i>Send SOS
+  </a>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="fs-2 fw-bold text-danger">{{ sos_list|length }}</div>
+      <div class="text-muted small">Total SOS</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="fs-2 fw-bold text-warning">{{ active_count }}</div>
+      <div class="text-muted small">Active</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="fs-2 fw-bold text-success">
+        {{ sos_list|selectattr('status','equalto','Resolved')|list|length }}
+      </div>
+      <div class="text-muted small">Resolved</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center p-3">
+      <div class="fs-2 fw-bold text-primary">
+        {{ sos_list|selectattr('sos_type','equalto','Medical Emergency')|list|length }}
+      </div>
+      <div class="text-muted small">Medical</div>
+    </div>
+  </div>
+</div>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-3">
+  <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-all">All</a></li>
+  <li class="nav-item">
+    <a class="nav-link" data-bs-toggle="tab" href="#tab-active">
+      Active {% if active_count %}<span class="badge bg-danger">{{ active_count }}</span>{% endif %}
+    </a>
+  </li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-resolved">Resolved</a></li>
+</ul>
+
+<div class="tab-content">
+  {% for tab_id, filter_status in [('tab-all',None),('tab-active','Active'),('tab-resolved','Resolved')] %}
+  <div class="tab-pane fade {% if tab_id=='tab-all' %}show active{% endif %}" id="{{ tab_id }}">
+    <div class="row g-3">
+      {% set filtered = sos_list if not filter_status else sos_list|selectattr('status','equalto',filter_status)|list %}
+      {% for sos in filtered %}
+      <div class="col-12">
+        <div class="card border-0 shadow-sm {{ 'sos-row-active' if sos.status=='Active' else 'sos-row-resolved' }}">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+              <div class="d-flex align-items-start gap-3">
+                <div class="mt-1">
+                  {% if sos.status=='Active' %}
+                    <span class="pulse-dot"></span>
+                  {% else %}
+                    <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                  {% endif %}
+                </div>
+                <div>
+                  <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                    <span class="badge bg-danger">{{ sos.sos_type }}</span>
+                    <span class="badge {% if sos.status=='Active' %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                      {{ sos.status }}
+                    </span>
+                    <span class="text-muted small"><i class="bi bi-people me-1"></i>{{ sos.people }} people</span>
+                  </div>
+                  <h6 class="fw-bold mb-1">
+                    <i class="bi bi-geo-alt-fill text-danger me-1"></i>{{ sos.location }}
+                  </h6>
+                  <p class="mb-1 text-dark">{{ sos.message }}</p>
+                  <div class="text-muted small d-flex gap-3 flex-wrap">
+                    <span><i class="bi bi-person me-1"></i>{{ sos.reported_by }}</span>
+                    <span><i class="bi bi-clock me-1"></i>{{ sos.created_at[:16] if sos.created_at else '—' }}</span>
+                    {% if sos.resolved_by %}
+                    <span class="text-success">
+                      <i class="bi bi-check me-1"></i>Resolved by {{ sos.resolved_by }}
+                    </span>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Action buttons -->
+              <div class="d-flex gap-2 align-items-start flex-wrap">
+                {% if sos.lat and sos.lng %}
+                <a href="{{ url_for('map_view.index') }}" class="btn btn-sm btn-outline-primary" title="View on map">
+                  <i class="bi bi-map"></i>
+                </a>
+                {% endif %}
+
+                <!-- WhatsApp Share — opens WhatsApp with SOS details, works for ANY number -->
+                <button type="button"
+                   onclick="shareSOSWhatsApp('{{ sos.sos_type }}','{{ sos.location | replace("'","") }}','{{ sos.message | replace("'","") | truncate(100,true,"") }}','{{ sos.people }}')"
+                   class="btn btn-sm btn-success" title="Share on WhatsApp">
+                  <i class="bi bi-whatsapp me-1"></i>WhatsApp
+                </button>
+
+                {% if sos.status=='Active' %}
+                <form method="POST" action="{{ url_for('sos.resolve', sos_id=sos._id) }}"
+                      onsubmit="return confirm('Mark this SOS as resolved?')">
+                  <button type="submit" class="btn btn-sm btn-outline-success">
+                    <i class="bi bi-check-lg me-1"></i>Resolve
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="col-12 text-center text-muted py-5">
+        <i class="bi bi-sos fs-1 d-block mb-2 opacity-25"></i>
+        No {{ filter_status.lower() if filter_status else '' }} SOS alerts.
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function shareSOSWhatsApp(type, location, message, people) {
+  const text = encodeURIComponent(
+    '🆘 *SOS ALERT*\n\n' +
+    '*Type:* ' + type + '\n' +
+    '*Location:* ' + location + '\n' +
+    '*Message:* ' + message + '\n' +
+    '*People:* ' + people + '\n\n' +
+    '🚔 Police: 100 | 🚒 Fire: 101 | 🚑 Ambulance: 108'
+  );
+  const phone = prompt('Send to specific number? (e.g. +918074177416)\nLeave blank to choose in WhatsApp.');
+  let url;
+  if (phone && phone.trim()) {
+    const num = phone.trim().replace(/[^0-9]/g, '');
+    url = 'https://wa.me/' + num + '?text=' + text;
+  } else if (phone !== null) {
+    url = 'https://wa.me/?text=' + text;
+  } else return;
+  window.open(url, '_blank');
+}
+
+{% if active_count > 0 %}
+window.addEventListener('load', () => {
+  try {
+    const a = new Audio('/static/sounds/sos_alarm.mp3');
+    a.volume = 0.7;
+    a.play().catch(() => sosAlarm(3));
+  } catch(e) { sosAlarm(3); }
+});
+{% endif %}
+</script>
+{% endblock %}

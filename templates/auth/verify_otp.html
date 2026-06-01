@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Verify OTP{% endblock %}
+{% block auth_content %}
+<div class="card shadow-lg auth-card">
+  <div class="card-body p-5">
+    <div class="text-center mb-4">
+      <i class="bi bi-envelope text-danger" style="font-size:3rem;"></i>
+      <h3 class="fw-bold mt-2">Two-Factor Authentication</h3>
+      <p class="text-muted mb-0">Enter the 6-digit OTP sent to your email</p>
+      <small class="text-muted">Valid for 10 minutes</small>
+    </div>
+
+    <!-- Flash messages (OTP shown here in fallback mode) -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}
+        <div class="alert alert-{{ cat }}" role="alert">{{ msg | safe }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <form method="POST">
+      <div class="mb-4">
+        <label class="form-label fw-semibold">OTP Code</label>
+        <input type="text" name="otp"
+               class="form-control form-control-lg text-center letter-spacing-wide"
+               maxlength="6" placeholder="_ _ _ _ _ _"
+               inputmode="numeric" pattern="[0-9]{6}"
+               required autofocus />
+      </div>
+      <button type="submit" class="btn btn-danger w-100 fw-bold py-2">
+        <i class="bi bi-shield-check me-2"></i>Verify OTP
+      </button>
+    </form>
+
+    <hr />
+
+    <!-- Resend OTP -->
+    <div class="text-center">
+      <p class="text-muted small mb-2">Didn't receive the OTP?</p>
+      <form method="POST" action="{{ url_for('auth.resend_otp') }}" class="d-inline">
+        <button type="submit" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-arrow-clockwise me-1"></i>Resend OTP
+        </button>
+      </form>
+    </div>
+
+    <p class="text-center mt-3 mb-0">
+      <a href="{{ url_for('auth.login') }}" class="text-muted small">← Back to Login</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head><title>Voice Test</title>
+<style>
+body { font-family: Arial; padding: 20px; background: #f4f6f9; }
+.card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+button { padding: 10px 20px; margin: 6px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; }
+.btn-en { background: #0d6efd; color: #fff; }
+.btn-te { background: #dc3545; color: #fff; }
+.btn-stop { background: #6c757d; color: #fff; }
+#log { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; min-height: 120px; font-size: 13px; white-space: pre-wrap; }
+#mic-result { background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 8px; padding: 12px; min-height: 60px; font-size: 14px; }
+</style>
+</head>
+<body>
+<h2>🔊 Voice Test Page</h2>
+<p>Use this page to test TTS and STT before using the chatbot.</p>
+
+<div class="card">
+  <h4>Step 1 — Check Available Voices</h4>
+  <button onclick="listVoices()" style="background:#198754;color:#fff;padding:10px 20px;border:none;border-radius:8px;cursor:pointer;">
+    📋 List All Voices
+  </button>
+  <div id="log" style="margin-top:10px;">Click "List All Voices" to see what's available...</div>
+</div>
+
+<div class="card">
+  <h4>Step 2 — Test Text to Voice (TTS)</h4>
+  <button class="btn-en" onclick="testTTS('en')">🔊 Test English Voice</button>
+  <button class="btn-te" onclick="testTTS('te')">🔊 Test Telugu Voice</button>
+  <button class="btn-stop" onclick="window.speechSynthesis.cancel()">⏹ Stop</button>
+  <div id="tts-status" style="margin-top:8px;color:#555;font-size:13px;"></div>
+</div>
+
+<div class="card">
+  <h4>Step 3 — Test Voice to Text (STT)</h4>
+  <button class="btn-en" onclick="testSTT('en-IN')">🎤 Speak English</button>
+  <button class="btn-te" onclick="testSTT('te-IN')">🎤 Speak Telugu</button>
+  <button class="btn-stop" onclick="stopSTT()">⏹ Stop Mic</button>
+  <div id="mic-result" style="margin-top:8px;">Mic result will appear here...</div>
+</div>
+
+<div class="card">
+  <h4>Step 4 — Custom Text Test</h4>
+  <textarea id="custom-text" style="width:100%;padding:8px;border-radius:6px;border:1px solid #dee2e6;font-size:14px;" rows="3">Hello, this is a test of the English India voice in Microsoft Edge.</textarea>
+  <br/>
+  <button class="btn-en" onclick="speakCustom('en')">🔊 Speak as English</button>
+  <button class="btn-te" onclick="speakCustom('te')">🔊 Speak as Telugu</button>
+</div>
+
+<script>
+let voices = [];
+let rec = null;
+
+// Load voices
+function loadVoices() {
+  voices = window.speechSynthesis.getVoices();
+  return voices;
+}
+loadVoices();
+window.speechSynthesis.onvoiceschanged = loadVoices;
+
+function listVoices() {
+  loadVoices();
+  const log = document.getElementById('log');
+  if (!voices.length) {
+    log.textContent = '❌ No voices found! Try reloading the page.';
+    return;
+  }
+  let out = `✅ Found ${voices.length} voices:\n\n`;
+  voices.forEach((v, i) => {
+    const mark = v.lang.startsWith('en') ? '🇬🇧' : v.lang.startsWith('te') ? '🇮🇳' : '  ';
+    out += `${mark} [${i}] ${v.name} | ${v.lang}${v.default ? ' ★DEFAULT' : ''}\n`;
+  });
+  log.textContent = out;
+}
+
+function pickVoice(lang) {
+  loadVoices();
+  if (lang === 'te') {
+    return voices.find(v => v.lang === 'te-IN') ||
+           voices.find(v => v.lang.startsWith('te')) ||
+           voices.find(v => v.name.toLowerCase().includes('telugu')) ||
+           voices.find(v => v.lang === 'en-IN') ||
+           voices.find(v => v.default) ||
+           voices[0];
+  }
+  // English India first
+  return voices.find(v => v.lang === 'en-IN') ||
+         voices.find(v => v.name.includes('Microsoft') && v.lang === 'en-IN') ||
+         voices.find(v => v.name.includes('Microsoft') && v.lang === 'en-US') ||
+         voices.find(v => v.name.includes('Microsoft') && v.lang.startsWith('en')) ||
+         voices.find(v => v.lang === 'en-US') ||
+         voices.find(v => v.lang.startsWith('en')) ||
+         voices.find(v => v.default) ||
+         voices[0];
+}
+
+function testTTS(lang) {
+  loadVoices();
+  const voice = pickVoice(lang);
+  const text = lang === 'te'
+    ? 'నమస్కారం! నేను తెలుగులో మాట్లాడుతున్నాను. ఇది ఒక పరీక్ష.'
+    : 'Hello! This is a test of the English India voice. I am ARIA, your disaster response assistant.';
+
+  const status = document.getElementById('tts-status');
+  status.textContent = voice
+    ? `Using voice: ${voice.name} (${voice.lang})`
+    : '⚠️ No matching voice found, using browser default';
+
+  const u = new SpeechSynthesisUtterance(text);
+  u.volume = 1.0;
+  u.rate   = lang === 'te' ? 0.85 : 0.9;
+  u.pitch  = 1.0;
+  if (voice) { u.voice = voice; u.lang = voice.lang; }
+  else u.lang = lang === 'te' ? 'te-IN' : 'en-IN';
+
+  u.onerror = (e) => { status.textContent = '❌ TTS Error: ' + e.error + ' — try clicking Stop first'; };
+  u.onend   = () => { status.textContent += ' ✅ Done'; };
+
+  window.speechSynthesis.cancel();
+  setTimeout(() => window.speechSynthesis.speak(u), 150);
+}
+
+function speakCustom(lang) {
+  const text = document.getElementById('custom-text').value;
+  const voice = pickVoice(lang);
+  const u = new SpeechSynthesisUtterance(text);
+  u.volume = 1.0; u.rate = 0.9; u.pitch = 1.0;
+  if (voice) { u.voice = voice; u.lang = voice.lang; }
+  window.speechSynthesis.cancel();
+  setTimeout(() => window.speechSynthesis.speak(u), 150);
+}
+
+// STT
+function testSTT(lang) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { document.getElementById('mic-result').textContent = '❌ Speech recognition not supported. Use Edge or Chrome.'; return; }
+  if (rec) { rec.stop(); rec = null; }
+  rec = new SR();
+  rec.lang = lang;
+  rec.continuous = false;
+  rec.interimResults = true;
+  rec.onstart = () => { document.getElementById('mic-result').textContent = '🎤 Listening in ' + lang + '... Speak now!'; };
+  rec.onresult = (e) => {
+    let t = '';
+    for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+    document.getElementById('mic-result').textContent = '✅ Heard: ' + t;
+  };
+  rec.onerror = (e) => { document.getElementById('mic-result').textContent = '❌ Error: ' + e.error; };
+  rec.onend   = () => { rec = null; };
+  rec.start();
+}
+
+function stopSTT() { if (rec) { rec.stop(); rec = null; } }
+
+// Auto-list voices on load
+window.addEventListener('load', () => setTimeout(listVoices, 500));
+</script>
+</body>
+</html>

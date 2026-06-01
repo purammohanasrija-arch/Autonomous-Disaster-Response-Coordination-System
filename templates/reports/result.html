@@ -1,0 +1,242 @@
+{% extends 'base.html' %}
+{% block title %}Analysis Result{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="fw-bold mb-0"><i class="bi bi-cpu me-2 text-danger"></i>AI Agent Analysis Results</h4>
+  <a href="{{ url_for('reports.new_report') }}" class="btn btn-outline-danger btn-sm">
+    <i class="bi bi-plus me-1"></i>New Report
+  </a>
+</div>
+
+<div class="row g-3">
+  <!-- Agent 1 -->
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header agent-header bg-danger text-white">
+        <i class="bi bi-graph-up-arrow me-2"></i>1. Disaster Analysis Agent
+      </div>
+      <div class="card-body">
+        <table class="table table-borderless mb-0">
+          <tr><th>Location</th><td>{{ report.location }}</td></tr>
+          <tr><th>Type</th><td><span class="badge bg-secondary">{{ analysis.type }}</span></td></tr>
+          <tr><th>Severity</th><td>
+            <span class="badge {% if analysis.severity=='High' %}bg-danger{% elif analysis.severity=='Medium' %}bg-warning text-dark{% else %}bg-success{% endif %} fs-6">
+              {{ analysis.severity }}
+            </span>
+          </td></tr>
+          <tr><th>Risk Score</th><td>
+            <span class="fw-bold fs-5 {% if analysis.risk_score>=8 %}text-danger{% elif analysis.risk_score>=5 %}text-warning{% else %}text-success{% endif %}">
+              {{ analysis.risk_score }}/10
+            </span>
+          </td></tr>
+          <tr><th>Summary</th><td class="text-muted">{{ analysis.summary }}</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agent 2 -->
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header agent-header bg-success text-white">
+        <i class="bi bi-boxes me-2"></i>2. Resource Allocation Agent
+      </div>
+      <div class="card-body">
+        <ul class="list-group list-group-flush">
+          {% for resource, qty in allocation.allocated.items() %}
+          <li class="list-group-item d-flex justify-content-between px-0">
+            <span class="text-capitalize">{{ resource.replace('_',' ') }}</span>
+            <span class="badge bg-primary rounded-pill">{{ qty }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        <div class="mt-3">
+          <span class="badge {% if allocation.status=='Allocated Successfully' %}bg-success{% else %}bg-warning text-dark{% endif %} fs-6">
+            {{ allocation.status }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agent 3 -->
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header agent-header bg-primary text-white">
+        <i class="bi bi-signpost-split me-2"></i>3. Route Optimization Agent
+      </div>
+      <div class="card-body">
+        <p class="fw-semibold mb-1">Suggested Route:</p>
+        <p class="text-primary">{{ route.route_summary }}</p>
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <div class="bg-light rounded p-2 text-center">
+              <div class="fw-bold text-primary">{{ route.estimated_time_mins }} mins</div>
+              <div class="text-muted small">Estimated Time</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="bg-light rounded p-2 text-center">
+              <div class="fw-bold text-primary">{{ route.distance_km }} km</div>
+              <div class="text-muted small">Distance</div>
+            </div>
+          </div>
+        </div>
+        <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i>{{ route.notes }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agent 4 -->
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header agent-header bg-warning text-dark">
+        <i class="bi bi-bell-fill me-2"></i>4. Emergency Alert Agent
+      </div>
+      <div class="card-body">
+        <div class="alert alert-danger mb-3">
+          <i class="bi bi-exclamation-triangle-fill me-2"></i>
+          <strong>{{ alert.disaster_type }} Alert</strong><br/>
+          {{ alert.message }}
+        </div>
+        <table class="table table-borderless table-sm mb-0">
+          <tr><th>Status</th><td><span class="badge bg-danger">{{ alert.status }}</span></td></tr>
+          <tr><th>Generated</th><td class="text-muted small">{{ alert.created_at[:16] }}</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mt-4 d-flex gap-2 flex-wrap">
+  <a href="{{ url_for('dashboard.index') }}" class="btn btn-danger">
+    <i class="bi bi-speedometer2 me-1"></i>Dashboard
+  </a>
+  <a href="{{ url_for('reports.index') }}" class="btn btn-outline-secondary">
+    <i class="bi bi-list me-1"></i>All Reports
+  </a>
+  <button onclick="shareWA()" class="btn btn-success fw-bold">
+    <i class="bi bi-whatsapp me-2"></i>Share on WhatsApp
+  </button>
+  <button onclick="downloadPDF()" class="btn btn-primary fw-bold">
+    <i class="bi bi-file-earmark-pdf me-2"></i>Download PDF
+  </button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+// ── WhatsApp share ────────────────────────────────────────────────────────────
+function shareWA() {
+  const msg = encodeURIComponent(
+    '\uD83D\uDEA8 *DISASTER REPORT*\n\n' +
+    '*Location:* {{ report.location }}\n' +
+    '*Type:* {{ analysis.type }}\n' +
+    '*Severity:* {{ analysis.severity }}\n' +
+    '*Risk Score:* {{ analysis.risk_score }}/10\n\n' +
+    '*Alert:* {{ alert.message }}\n\n' +
+    '*Route:* {{ route.route_summary }}\n' +
+    '*ETA:* {{ route.estimated_time_mins }} mins\n\n' +
+    '\uD83D\uDE94 Police: 100 | \uD83D\uDE92 Fire: 101 | \uD83D\uDE91 Ambulance: 108'
+  );
+  window.open('https://wa.me/?text=' + msg, '_blank');
+}
+
+// ── PDF download ──────────────────────────────────────────────────────────────
+function downloadPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const now = new Date().toLocaleString();
+  let y = 0;
+
+  // Red header bar
+  doc.setFillColor(220, 53, 69);
+  doc.rect(0, 0, 210, 30, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(18); doc.setFont('helvetica', 'bold');
+  doc.text('Disaster Response System', 14, 13);
+  doc.setFontSize(11); doc.setFont('helvetica', 'normal');
+  doc.text('AI Agent Analysis Report', 14, 22);
+  doc.text(now, 196, 22, { align: 'right' });
+  y = 38;
+
+  // Section header helper
+  function sectionHeader(title, r, g, b) {
+    doc.setFillColor(r, g, b);
+    doc.rect(14, y, 182, 9, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(11); doc.setFont('helvetica', 'bold');
+    doc.text(title, 17, y + 6);
+    doc.setTextColor(0, 0, 0);
+    y += 13;
+  }
+
+  // Row helper
+  function row(label, value) {
+    doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+    doc.text(label + ':', 17, y);
+    doc.setFont('helvetica', 'normal');
+    const lines = doc.splitTextToSize(String(value || '—'), 128);
+    doc.text(lines, 65, y);
+    y += lines.length * 6 + 1;
+    if (y > 270) { doc.addPage(); y = 20; }
+  }
+
+  // ── Section 1: Analysis ───────────────────────────────────────────────────
+  sectionHeader('1. Disaster Analysis Agent', 220, 53, 69);
+  row('Location',   '{{ report.location }}');
+  row('Type',       '{{ analysis.type }}');
+  row('Severity',   '{{ analysis.severity }}');
+  row('Risk Score', '{{ analysis.risk_score }}/10');
+  row('Summary',    '{{ analysis.summary }}');
+  y += 4;
+
+  // ── Section 2: Resources ──────────────────────────────────────────────────
+  sectionHeader('2. Resource Allocation Agent', 25, 135, 84);
+  {% for resource, qty in allocation.allocated.items() %}
+  row('{{ resource.replace("_"," ").title() }}', '{{ qty }}');
+  {% endfor %}
+  row('Status', '{{ allocation.status }}');
+  y += 4;
+
+  // ── Section 3: Route ──────────────────────────────────────────────────────
+  sectionHeader('3. Route Optimization Agent', 13, 110, 253);
+  row('Route',    '{{ route.route_summary }}');
+  row('ETA',      '{{ route.estimated_time_mins }} minutes');
+  row('Distance', '{{ route.distance_km }} km');
+  row('Notes',    '{{ route.notes }}');
+  y += 4;
+
+  // ── Section 4: Alert ──────────────────────────────────────────────────────
+  sectionHeader('4. Emergency Alert Agent', 255, 193, 7);
+  doc.setTextColor(0, 0, 0);
+  row('Alert Type', '{{ alert.disaster_type }}');
+  row('Message',    '{{ alert.message }}');
+  row('Status',     '{{ alert.status }}');
+  y += 6;
+
+  // ── Footer ────────────────────────────────────────────────────────────────
+  doc.setFillColor(248, 249, 250);
+  doc.rect(14, y, 182, 16, 'F');
+  doc.setDrawColor(220, 53, 69);
+  doc.rect(14, y, 182, 16, 'S');
+  doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+  doc.setTextColor(220, 53, 69);
+  doc.text('Emergency Numbers:', 17, y + 6);
+  doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'normal');
+  doc.text('Police: 100   |   Fire: 101   |   Ambulance: 108   |   NDRF: 011-24363260', 17, y + 12);
+
+  // Page numbers
+  const pages = doc.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8); doc.setTextColor(150, 150, 150);
+    doc.text('Page ' + i + ' of ' + pages + '  |  Autonomous Disaster Response Coordination System', 105, 292, { align: 'center' });
+  }
+
+  doc.save('disaster_report_{{ report.location|replace(" ","_")|replace(",","") }}.pdf');
+}
+</script>
+{% endblock %}

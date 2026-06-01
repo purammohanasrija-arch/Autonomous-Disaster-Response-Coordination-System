@@ -1,0 +1,208 @@
+{% extends 'base.html' %}
+{% block title %}Submit Report{% endblock %}
+
+{% block head %}
+<style>
+  #location-suggestions {
+    position:absolute; top:100%; left:0; right:0; z-index:1050;
+    background:#fff; border:1px solid #dee2e6; border-top:none;
+    border-radius:0 0 .5rem .5rem; max-height:260px; overflow-y:auto;
+    box-shadow:0 6px 20px rgba(0,0,0,.12); display:none;
+  }
+  .sug-item {
+    padding:.6rem 1rem; cursor:pointer; font-size:.88rem;
+    border-bottom:1px solid #f0f0f0; display:flex; gap:.6rem;
+  }
+  .sug-item:hover { background:#fff5f5; }
+  .sug-item:last-child { border-bottom:none; }
+  .sug-main { font-weight:600; }
+  .sug-sub  { font-size:.75rem; color:#6c757d; }
+  #gmap-preview { width:100%; height:300px; border:none;
+                  border-radius:.5rem; display:none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-danger text-white fw-semibold">
+        <i class="bi bi-exclamation-triangle me-2"></i>Submit Disaster Report
+      </div>
+      <div class="card-body p-4">
+        <form method="POST" id="report-form">
+
+          <!-- Location search -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">
+              Location <span class="text-danger">*</span>
+            </label>
+            <div style="position:relative;">
+              <div class="input-group">
+                <span class="input-group-text bg-danger text-white border-danger">
+                  <i class="bi bi-search"></i>
+                </span>
+                <input type="text" id="location-input" name="location"
+                       class="form-control form-control-lg border-danger"
+                       placeholder="Search any village, city, street, landmark…"
+                       autocomplete="off" required/>
+                <button type="button" class="btn btn-outline-danger" id="gps-btn"
+                        title="Use my current location">
+                  <i class="bi bi-crosshair"></i>
+                </button>
+                <a id="gmaps-link" href="https://maps.google.com" target="_blank"
+                   class="btn btn-outline-secondary" title="Open in Google Maps">
+                  <i class="bi bi-map"></i>
+                </a>
+              </div>
+              <div id="location-suggestions"></div>
+            </div>
+            <div class="mt-1 d-flex align-items-center gap-2">
+              <span id="coords-badge"
+                    class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"
+                    style="display:none;">
+                <i class="bi bi-geo-fill me-1"></i><span id="coords-text"></span>
+              </span>
+              <small class="text-muted">Type to search, or use GPS button</small>
+            </div>
+          </div>
+
+          <!-- Google Maps preview (shown after location selected) -->
+          <div class="mb-3" id="gmap-preview-wrap" style="display:none;">
+            <label class="form-label fw-semibold">
+              Google Maps Preview
+              <a id="open-gmaps" href="https://maps.google.com" target="_blank"
+                 class="btn btn-sm btn-outline-success ms-2">
+                <i class="bi bi-box-arrow-up-right me-1"></i>Open in Google Maps
+              </a>
+            </label>
+            <iframe id="gmap-preview" allowfullscreen loading="lazy"></iframe>
+          </div>
+
+          <!-- Description -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">
+              Description <span class="text-danger">*</span>
+            </label>
+            <textarea name="description" class="form-control" rows="4"
+                      placeholder="Describe the disaster… e.g. Flood near River Road. Water rising quickly."
+                      required></textarea>
+          </div>
+
+          <input type="hidden" name="lat" id="lat-input"/>
+          <input type="hidden" name="lng" id="lng-input"/>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-danger fw-bold px-4">
+              <i class="bi bi-send me-2"></i>Submit &amp; Analyze
+            </button>
+            <a href="{{ url_for('reports.index') }}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const locInput = document.getElementById('location-input');
+const sugBox   = document.getElementById('location-suggestions');
+let timer = null;
+
+function closeSug() { sugBox.style.display='none'; sugBox.innerHTML=''; }
+
+function setLocation(name, lat, lng) {
+  locInput.value = name;
+  document.getElementById('lat-input').value = lat ? lat.toFixed(6) : '';
+  document.getElementById('lng-input').value = lng ? lng.toFixed(6) : '';
+
+  if (lat && lng) {
+    document.getElementById('coords-text').textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    document.getElementById('coords-badge').style.display = 'inline-flex';
+  }
+
+  // Show Google Maps preview
+  const q = encodeURIComponent(name);
+  document.getElementById('gmap-preview').src =
+    `https://maps.google.com/maps?q=${q}&output=embed&z=14`;
+  document.getElementById('gmap-preview').style.display = 'block';
+  document.getElementById('gmap-preview-wrap').style.display = 'block';
+  document.getElementById('open-gmaps').href = `https://maps.google.com/maps?q=${q}`;
+  document.getElementById('gmaps-link').href = `https://maps.google.com/maps?q=${q}`;
+  closeSug();
+}
+
+async function doSearch(q) {
+  sugBox.innerHTML = '<div class="sug-item text-muted"><i class="bi bi-hourglass-split me-2"></i>Searching…</div>';
+  sugBox.style.display = 'block';
+  try {
+    let url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=8&addressdetails=1&countrycodes=in`;
+    let data = await (await fetch(url, {headers:{'Accept-Language':'en','User-Agent':'DisasterApp/1.0'}})).json();
+    if (!data.length) {
+      url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=8&addressdetails=1`;
+      data = await (await fetch(url, {headers:{'Accept-Language':'en','User-Agent':'DisasterApp/1.0'}})).json();
+    }
+    sugBox.innerHTML = '';
+    if (!data.length) {
+      sugBox.innerHTML = '<div class="sug-item text-muted">No results. Try adding state name.</div>';
+      return;
+    }
+    data.forEach(item => {
+      const addr = item.address || {};
+      const main = addr.village||addr.hamlet||addr.town||addr.city||addr.suburb||item.display_name.split(',')[0];
+      const sub  = [addr.county||addr.state_district, addr.state].filter(Boolean).join(', ');
+      const div  = document.createElement('div');
+      div.className = 'sug-item';
+      div.innerHTML = `<i class="bi bi-geo-alt-fill text-danger mt-1" style="flex-shrink:0;"></i>
+        <div><div class="sug-main">${main}</div><div class="sug-sub">${sub}</div></div>`;
+      div.addEventListener('mousedown', e => {
+        e.preventDefault();
+        setLocation(item.display_name, parseFloat(item.lat), parseFloat(item.lon));
+      });
+      sugBox.appendChild(div);
+    });
+  } catch(e) { closeSug(); }
+}
+
+locInput.addEventListener('input', () => {
+  clearTimeout(timer);
+  const q = locInput.value.trim();
+  if (q.length < 2) { closeSug(); return; }
+  timer = setTimeout(() => doSearch(q), 400);
+  // Update Google Maps link as user types
+  document.getElementById('gmaps-link').href =
+    `https://maps.google.com/maps?q=${encodeURIComponent(q)}`;
+});
+locInput.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeSug();
+  if (e.key === 'Enter' && sugBox.style.display === 'none') {
+    // Show Google Maps for typed text
+    const q = locInput.value.trim();
+    if (q) setLocation(q, null, null);
+  }
+});
+locInput.addEventListener('blur', () => setTimeout(closeSug, 150));
+
+// GPS button
+document.getElementById('gps-btn').addEventListener('click', () => {
+  if (!navigator.geolocation) { alert('Geolocation not supported.'); return; }
+  const btn = document.getElementById('gps-btn');
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+  btn.disabled = true;
+  navigator.geolocation.getCurrentPosition(pos => {
+    const {latitude:lat, longitude:lng} = pos.coords;
+    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=18`,
+      {headers:{'Accept-Language':'en','User-Agent':'DisasterApp/1.0'}})
+      .then(r=>r.json()).then(d => {
+        setLocation(d.display_name || `${lat.toFixed(5)},${lng.toFixed(5)}`, lat, lng);
+      }).catch(() => setLocation(`${lat.toFixed(5)},${lng.toFixed(5)}`, lat, lng))
+      .finally(() => { btn.innerHTML='<i class="bi bi-crosshair"></i>'; btn.disabled=false; });
+  }, () => {
+    alert('Could not get location.');
+    btn.innerHTML='<i class="bi bi-crosshair"></i>'; btn.disabled=false;
+  });
+});
+</script>
+{% endblock %}

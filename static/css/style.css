@@ -1,0 +1,178 @@
+/* ── Layout ──────────────────────────────────────────────────────────────── */
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #f4f6f9;
+}
+
+#wrapper {
+  min-height: 100vh;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+#sidebar {
+  width: 240px;
+  min-height: 100vh;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+#sidebar .sidebar-brand {
+  font-size: 1rem;
+  letter-spacing: .02em;
+}
+
+#sidebar .nav-link {
+  border-radius: .4rem;
+  padding: .5rem .75rem;
+  font-size: .9rem;
+  transition: background .15s;
+}
+
+#sidebar .nav-link:hover {
+  background: rgba(255, 255, 255, .1);
+}
+
+#sidebar .active-link {
+  background: rgba(220, 53, 69, .25);
+  color: #ff6b6b !important;
+  font-weight: 600;
+}
+
+/* ── Auth pages ──────────────────────────────────────────────────────────── */
+.auth-bg {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  border-radius: 1rem;
+}
+
+/* ── Stat cards ──────────────────────────────────────────────────────────── */
+.stat-card {
+  border-radius: .75rem;
+  transition: transform .15s, box-shadow .15s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 .5rem 1.5rem rgba(0,0,0,.1) !important;
+}
+
+.stat-icon {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── Agent result headers ────────────────────────────────────────────────── */
+.agent-header {
+  font-weight: 600;
+  font-size: .9rem;
+  letter-spacing: .02em;
+}
+
+/* ── Tables ──────────────────────────────────────────────────────────────── */
+.table th {
+  font-weight: 600;
+  font-size: .85rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+/* ── OTP input ───────────────────────────────────────────────────────────── */
+.letter-spacing-wide {
+  letter-spacing: .5rem;
+  font-size: 1.5rem;
+}
+
+/* ── Responsive sidebar collapse ────────────────────────────────────────── */
+@media (max-width: 768px) {
+  #sidebar {
+    width: 60px;
+  }
+  #sidebar .sidebar-brand span,
+  #sidebar .nav-link span,
+  #sidebar .nav-link .me-2 ~ * {
+    display: none;
+  }
+  #sidebar .nav-link {
+    text-align: center;
+    padding: .5rem;
+  }
+}
+
+/* ── SOS Floating Action Button ─────────────────────────────────────────── */
+#sos-fab {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  width: 64px;
+  height: 64px;
+  background: #dc3545;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  text-decoration: none;
+  box-shadow: 0 4px 20px rgba(220, 53, 69, .55);
+  z-index: 1040;
+  animation: sos-fab-pulse 2s ease-in-out infinite;
+  transition: transform .15s, box-shadow .15s;
+}
+
+#sos-fab:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 28px rgba(220, 53, 69, .75);
+  color: white;
+}
+
+@keyframes sos-fab-pulse {
+  0%, 100% { box-shadow: 0 4px 20px rgba(220, 53, 69, .55); }
+  50%       { box-shadow: 0 4px 32px rgba(220, 53, 69, .9), 0 0 0 10px rgba(220, 53, 69, .15); }
+}
+
+.sos-fab-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #ffc107;
+  color: #212529;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  font-size: .7rem;
+  font-weight: 700;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+}
+
+/* ── SOS sidebar button ──────────────────────────────────────────────────── */
+.sos-sidebar-btn {
+  border-radius: .5rem;
+  letter-spacing: .03em;
+  animation: sos-btn-glow 2s ease-in-out infinite;
+}
+
+@keyframes sos-btn-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, .5); }
+  50%       { box-shadow: 0 0 12px 4px rgba(220, 53, 69, .35); }
+}
+
+/* ── Top bar ─────────────────────────────────────────────────────────────── */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}

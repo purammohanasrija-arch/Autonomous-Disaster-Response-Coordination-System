@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="fw-bold mb-0"><i class="bi bi-speedometer2 me-2 text-danger"></i>Dashboard</h4>
+  <a href="{{ url_for('reports.new_report') }}" class="btn btn-danger">
+    <i class="bi bi-plus-circle me-1"></i>New Report
+  </a>
+</div>
+
+<!-- ── Stat Cards ──────────────────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card stat-card border-0 shadow-sm">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="stat-icon bg-danger-subtle text-danger rounded-circle">
+          <i class="bi bi-people-fill fs-4"></i>
+        </div>
+        <div>
+          <div class="fs-2 fw-bold" id="stat-active-users">{{ active_users }}</div>
+          <div class="text-muted small">Active Users</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card stat-card border-0 shadow-sm">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="stat-icon bg-success-subtle text-success rounded-circle">
+          <i class="bi bi-person-badge-fill fs-4"></i>
+        </div>
+        <div>
+          <div class="fs-2 fw-bold" id="stat-rescue-teams">{{ rescue_teams }}</div>
+          <div class="text-muted small">Rescue Teams</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card stat-card border-0 shadow-sm">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="stat-icon bg-primary-subtle text-primary rounded-circle">
+          <i class="bi bi-truck-front-fill fs-4"></i>
+        </div>
+        <div>
+          <div class="fs-2 fw-bold" id="stat-ambulances">{{ ambulances }}</div>
+          <div class="text-muted small">Ambulances</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card stat-card border-0 shadow-sm">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="stat-icon bg-warning-subtle text-warning rounded-circle">
+          <i class="bi bi-box-seam-fill fs-4"></i>
+        </div>
+        <div>
+          <div class="fs-2 fw-bold" id="stat-food-packets">{{ food_packets }}</div>
+          <div class="text-muted small">Food Packets</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Recent Reports (full width now) ───────────────────────────────── -->
+<div class="row g-3 mb-4">
+  <div class="col-12">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold border-0 pt-3">
+        <i class="bi bi-file-earmark-text me-2 text-danger"></i>Recent Disaster Reports
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Location</th><th>Type</th><th>Severity</th><th>Status</th><th>Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in recent_reports %}
+              <tr>
+                <td>{{ r.location }}</td>
+                <td>{{ r.type }}</td>
+                <td>
+                  <span class="badge
+                    {% if r.severity == 'High' %}bg-danger
+                    {% elif r.severity == 'Medium' %}bg-warning text-dark
+                    {% else %}bg-success{% endif %}">
+                    {{ r.severity }}
+                  </span>
+                </td>
+                <td><span class="badge bg-secondary">{{ r.status }}</span></td>
+                <td class="text-muted small">{{ r.timestamp[:16] if r.timestamp else '—' }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="5" class="text-center text-muted py-4">No reports yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Latest Alert ───────────────────────────────────────────────────── -->
+{% if latest_alert %}
+<div class="alert alert-danger d-flex align-items-start gap-3 shadow-sm" role="alert">
+  <i class="bi bi-exclamation-triangle-fill fs-4 mt-1"></i>
+  <div>
+    <strong>{{ latest_alert.disaster_type }} Alert</strong><br />
+    {{ latest_alert.message }}<br />
+    <small class="text-muted">{{ latest_alert.created_at[:16] if latest_alert.created_at else '' }}</small>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // ── Auto-refresh stats every 30 s ─────────────────────────────────────
+  async function refreshStats() {
+    try {
+      const res = await fetch('/api/stats');
+      const d = await res.json();
+      document.getElementById('stat-rescue-teams').textContent = d.rescue_teams;
+      document.getElementById('stat-ambulances').textContent   = d.ambulances;
+      document.getElementById('stat-food-packets').textContent = d.food_packets;
+    } catch(e) {}
+  }
+  setInterval(refreshStats, 30000);
+</script>
+{% endblock %}

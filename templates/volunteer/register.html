@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}Volunteer Registration{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="fw-bold mb-0"><i class="bi bi-person-heart me-2 text-danger"></i>Volunteer Registration</h4>
+      <a href="{{ url_for('volunteer.all_volunteers') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-people me-1"></i>All Volunteers
+      </a>
+    </div>
+
+    {% if existing %}
+    <div class="alert alert-success d-flex align-items-center gap-2 mb-3">
+      <i class="bi bi-check-circle-fill fs-5"></i>
+      <div>You are registered as a volunteer. Update your profile below.</div>
+    </div>
+    {% endif %}
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-danger text-white fw-semibold">
+        <i class="bi bi-person-plus me-2"></i>
+        {{ 'Update Profile' if existing else 'Register as Volunteer' }}
+      </div>
+      <div class="card-body p-4">
+        <form method="POST">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label>
+              <input type="text" name="name" class="form-control"
+                     value="{{ existing.name if existing else current_user.username }}" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Phone <span class="text-danger">*</span></label>
+              <input type="tel" name="phone" class="form-control"
+                     placeholder="+91XXXXXXXXXX"
+                     value="{{ existing.phone if existing else '' }}" required />
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Your Location <span class="text-danger">*</span></label>
+              <input type="text" name="location" class="form-control"
+                     placeholder="City / Area you can respond to"
+                     value="{{ existing.location if existing else '' }}" required />
+            </div>
+
+            <div class="col-12">
+              <label class="form-label fw-semibold">Skills <span class="text-danger">*</span> <small class="text-muted fw-normal">(select all that apply)</small></label>
+              <div class="row g-2">
+                {% for skill in skills %}
+                <div class="col-md-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="skills"
+                           value="{{ skill }}" id="skill-{{ loop.index }}"
+                           {% if existing and skill in existing.skills %}checked{% endif %} />
+                    <label class="form-check-label small" for="skill-{{ loop.index }}">{{ skill }}</label>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Currently Available?</label>
+              <select name="available" class="form-select">
+                <option value="Yes" {% if not existing or existing.available == 'Yes' %}selected{% endif %}>Yes – Available</option>
+                <option value="No"  {% if existing and existing.available == 'No' %}selected{% endif %}>No – Unavailable</option>
+              </select>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label fw-semibold">Additional Notes</label>
+              <textarea name="notes" class="form-control" rows="2"
+                        placeholder="Any special equipment, certifications, or constraints…">{{ existing.notes if existing else '' }}</textarea>
+            </div>
+          </div>
+
+          <div class="mt-4">
+            <button type="submit" class="btn btn-danger fw-bold px-4">
+              <i class="bi bi-person-check me-2"></i>
+              {{ 'Update Profile' if existing else 'Register as Volunteer' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% block title %}Broadcast{% endblock %}
+{% block content %}
+<div class="row g-4">
+
+  <!-- Send broadcast form -->
+  <div class="col-lg-5">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-danger text-white fw-semibold">
+        <i class="bi bi-megaphone-fill me-2"></i>Send Broadcast
+      </div>
+      <div class="card-body p-4">
+        <form method="POST">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Type</label>
+            <select name="btype" class="form-select">
+              {% for t in types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Priority</label>
+            <div class="d-flex gap-2">
+              {% for p, color in [('Normal','secondary'),('Urgent','warning'),('Critical','danger')] %}
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="priority"
+                       id="p-{{ p }}" value="{{ p }}" {% if p=='Normal' %}checked{% endif %}/>
+                <label class="form-check-label" for="p-{{ p }}">
+                  <span class="badge bg-{{ color }} {% if color=='warning' %}text-dark{% endif %}">{{ p }}</span>
+                </label>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Target Area</label>
+            <input type="text" name="area" class="form-control" value="All Areas"
+                   placeholder="e.g. All Areas, North Zone"/>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Title <span class="text-danger">*</span></label>
+            <input type="text" name="title" class="form-control"
+                   placeholder="e.g. Evacuation Order – River Road" required/>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Message <span class="text-danger">*</span></label>
+            <textarea name="message" class="form-control" rows="4"
+                      placeholder="Broadcast message to all users…" required></textarea>
+          </div>
+
+          <!-- WhatsApp toggle -->
+          <div class="mb-4 d-flex align-items-center gap-2">
+            <div class="form-check form-switch mb-0">
+              <input class="form-check-input" type="checkbox" name="send_whatsapp"
+                     id="wa-toggle" checked/>
+              <label class="form-check-label fw-semibold" for="wa-toggle">
+                <i class="bi bi-whatsapp text-success me-1"></i>
+                Send WhatsApp to all registered users
+              </label>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-danger w-100 fw-bold">
+            <i class="bi bi-megaphone me-2"></i>Send to All Users
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Broadcast history -->
+  <div class="col-lg-7">
+    <h5 class="fw-bold mb-3">
+      <i class="bi bi-clock-history me-2 text-danger"></i>Broadcast History
+    </h5>
+
+    {% if not broadcasts %}
+    <div class="text-center text-muted py-5">
+      <i class="bi bi-megaphone fs-1 d-block mb-2 opacity-25"></i>
+      No broadcasts sent yet.
+    </div>
+    {% endif %}
+
+    <div class="d-flex flex-column gap-3">
+      {% for b in broadcasts %}
+      {% set p_color = {'Normal':'secondary','Urgent':'warning','Critical':'danger'}.get(b.priority,'secondary') %}
+      {% set t_icon  = {'Evacuation Order':'bi-door-open','All Clear':'bi-check-circle',
+                        'Weather Warning':'bi-cloud-lightning','Curfew':'bi-moon',
+                        'Resource Update':'bi-boxes','General':'bi-megaphone'}.get(b.type,'bi-megaphone') %}
+      <div class="card border-0 shadow-sm border-start border-4
+        {% if b.priority=='Critical' %}border-danger
+        {% elif b.priority=='Urgent' %}border-warning
+        {% else %}border-secondary{% endif %}">
+        <div class="card-body py-3">
+          <div class="d-flex justify-content-between align-items-start mb-1">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi {{ t_icon }} text-danger"></i>
+              <strong>{{ b.title }}</strong>
+            </div>
+            <div class="d-flex gap-1 flex-wrap">
+              <span class="badge bg-{{ p_color }} {% if p_color=='warning' %}text-dark{% endif %}">{{ b.priority }}</span>
+              <span class="badge bg-light text-dark border">{{ b.type }}</span>
+              <!-- WhatsApp share — opens WhatsApp with broadcast, works for ANY number -->
+              <a href="https://wa.me/?text={{ ('📢 ' + b.type + ': ' + b.title + '%0A' + b.message + '%0AArea: ' + b.area + '%0A%0A🚔 Police: 100 | 🚒 Fire: 101 | 🚑 Ambulance: 108') | urlencode }}"
+                 target="_blank" class="btn btn-xs btn-success py-0 px-2"
+                 style="font-size:.72rem;" title="Share on WhatsApp">
+                <i class="bi bi-whatsapp"></i> Share
+              </a>
+            </div>
+          </div>
+          <p class="mb-1 text-dark">{{ b.message }}</p>
+          <div class="d-flex gap-3 text-muted small flex-wrap">
+            <span><i class="bi bi-geo-alt me-1"></i>{{ b.area }}</span>
+            <span><i class="bi bi-person me-1"></i>{{ b.sent_by }}</span>
+            <span><i class="bi bi-clock me-1"></i>{{ b.created_at[:16] }}</span>
+            <span><i class="bi bi-eye me-1"></i>{{ b.read_by|length }} read</span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Play chime when broadcast page loads with new broadcasts
+{% if broadcasts %}
+window.addEventListener('load', () => {
+  try { broadcastChime(); } catch(e) {}
+});
+{% endif %}
+</script>
+{% endblock %}

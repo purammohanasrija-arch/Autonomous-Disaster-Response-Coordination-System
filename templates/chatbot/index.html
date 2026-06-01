@@ -1,0 +1,356 @@
+{% extends 'base.html' %}
+{% block title %}ARIA – AI Assistant{% endblock %}
+
+{% block head %}
+<style>
+#chat-window {
+  height:460px; overflow-y:auto; background:#f8f9fa;
+  border-radius:.5rem; padding:1rem;
+  display:flex; flex-direction:column; gap:.75rem; scroll-behavior:smooth;
+}
+.msg-wrap      { display:flex; flex-direction:column; }
+.msg-wrap.user { align-items:flex-end; }
+.msg-wrap.bot  { align-items:flex-start; }
+.msg-bubble    { max-width:84%; padding:.7rem 1rem; border-radius:1rem;
+                 font-size:.88rem; line-height:1.65; word-break:break-word; }
+.msg-user      { background:#dc3545; color:#fff; border-bottom-right-radius:.2rem; }
+.msg-bot       { background:#fff; border:1px solid #dee2e6; border-bottom-left-radius:.2rem; }
+.msg-time      { font-size:.68rem; opacity:.6; margin-top:.25rem;
+                 display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.msg-bot strong { color:#dc3545; }
+.msg-bot ul    { padding-left:1.2rem; margin:.3rem 0; }
+.msg-bot li    { margin-bottom:.15rem; }
+.msg-bot table { font-size:.8rem; border-collapse:collapse; width:100%; margin:.5rem 0; }
+.msg-bot td,.msg-bot th { border:1px solid #dee2e6; padding:3px 8px; }
+.msg-bot th    { background:#f8f9fa; }
+.typing-dot    { width:8px;height:8px;border-radius:50%;background:#adb5bd;
+                 display:inline-block;animation:blink 1.2s infinite; }
+.typing-dot:nth-child(2){animation-delay:.2s}
+.typing-dot:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
+#mic-btn.listening {
+  background:#dc3545!important; color:#fff!important;
+  animation:mic-pulse 1s ease-in-out infinite;
+}
+@keyframes mic-pulse{0%,100%{box-shadow:0 0 0 0 rgba(220,53,69,.5);}50%{box-shadow:0 0 0 10px rgba(220,53,69,0);}}
+.lang-btn { font-size:.75rem; padding:4px 12px; border-radius:20px; }
+.lang-btn.active { background:#dc3545; color:#fff; border-color:#dc3545; }
+.listen-btn {
+  background:none; border:1px solid #dee2e6; border-radius:12px;
+  padding:2px 10px; cursor:pointer; font-size:.73rem; color:#555;
+  transition:all .15s; white-space:nowrap;
+}
+.listen-btn:hover { background:#f8f9fa; }
+.listen-btn.speaking { background:#dc3545!important; color:#fff!important; border-color:#dc3545!important; }
+#voice-bar {
+  font-size:.78rem; padding:5px 14px; border-radius:20px;
+  background:#e8f5e9; color:#2e7d32; display:none;
+  align-items:center; gap:8px; margin-bottom:6px;
+}
+#voice-bar.on { display:flex; }
+#voice-bar.err { background:#fce4ec; color:#c62828; }
+.quick-btn { font-size:.73rem; white-space:nowrap; }
+.aria-avatar { width:44px;height:44px;background:#dc3545;border-radius:50%;
+               display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-9">
+
+    <!-- Header -->
+    <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+      <div class="aria-avatar"><i class="bi bi-robot text-white fs-5"></i></div>
+      <div>
+        <h5 class="fw-bold mb-0">ARIA
+          <span class="badge {% if groq_key %}bg-success{% else %}bg-secondary{% endif %} ms-1" style="font-size:.6rem;">
+            {% if groq_key %}AI Powered{% else %}FAQ Mode{% endif %}
+          </span>
+        </h5>
+        <small class="text-muted">Autonomous Response Intelligence Assistant</small>
+      </div>
+      <div class="ms-auto d-flex align-items-center gap-2">
+        <span class="text-muted small">Language:</span>
+        <button class="btn btn-outline-danger btn-sm lang-btn active" id="lang-en" onclick="setLang('en')">🇬🇧 English</button>
+        <button class="btn btn-outline-danger btn-sm lang-btn"        id="lang-te" onclick="setLang('te')">🇮🇳 Telugu</button>
+        <button class="btn btn-danger btn-sm fw-bold" onclick="stopAll()">
+          <i class="bi bi-stop-fill me-1"></i>Stop
+        </button>
+      </div>
+    </div>
+
+    <!-- Status bar -->
+    <div id="voice-bar"><span class="spinner-grow spinner-grow-sm"></span><span id="vbar-text">Ready</span></div>
+
+    <div class="card border-0 shadow-sm">
+      <!-- Chat -->
+      <div id="chat-window">
+        <div class="msg-wrap bot">
+          <div class="msg-bubble msg-bot" id="welcome-msg">
+            👋 Hello <strong>{{ current_user.username }}</strong>! I'm <strong>ARIA</strong>.<br/><br/>
+            Ask me about disaster safety, first aid, SOS and more.<br/>
+            🎤 Click mic to speak · 🔊 Click Listen on any reply · 🇮🇳 Switch to Telugu<br/><br/>
+            🚨 <strong>Police 100 | Fire 101 | Ambulance 108</strong>
+          </div>
+          <div class="msg-time text-muted">
+            Just now
+            <button class="listen-btn" onclick="doSpeak(document.getElementById('welcome-msg').innerText,this)">🔊 Listen</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick topics EN -->
+      <div class="px-3 pt-2 pb-1 border-top bg-white" id="qt-en">
+        <div class="d-flex gap-1 flex-wrap">
+          {% for lbl,q in [('🌊 Flood','flood'),('🏚️ Earthquake','earthquake'),('🔥 Fire','fire'),('🌀 Cyclone','cyclone'),('🩺 First Aid','first aid'),('🎒 Preparedness','preparedness'),('🆘 SOS','sos'),('🧠 Mental Health','mental health')] %}
+          <button class="btn btn-outline-secondary btn-sm quick-btn" onclick="sendQuick('{{q}}')">{{lbl}}</button>
+          {% endfor %}
+        </div>
+      </div>
+      <!-- Quick topics TE -->
+      <div class="px-3 pt-2 pb-1 border-top bg-white" id="qt-te" style="display:none;">
+        <div class="d-flex gap-1 flex-wrap">
+          {% for lbl,q in [('🌊 వరద','వరద'),('🏚️ భూకంపం','భూకంపం'),('🔥 అగ్ని','అగ్ని'),('🌀 తుఫాను','తుఫాను'),('🩺 ప్రథమ చికిత్స','ప్రథమ చికిత్స'),('🎒 సిద్ధత','సిద్ధత'),('🆘 SOS','SOS'),('🧠 మానసిక ఆరోగ్యం','మానసిక ఆరోగ్యం')] %}
+          <button class="btn btn-outline-secondary btn-sm quick-btn" onclick="sendQuick('{{q}}')">{{lbl}}</button>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Input -->
+      <div class="card-footer bg-white border-top p-3">
+        <div class="input-group">
+          <button class="btn btn-outline-secondary" id="mic-btn" onclick="toggleMic()" title="Ctrl+M">
+            <i class="bi bi-mic-fill"></i>
+          </button>
+          <input type="text" id="chat-input" class="form-control"
+                 placeholder="Type or click 🎤 to speak…"
+                 onkeydown="if(event.key==='Enter')sendMsg()"/>
+          <button class="btn btn-outline-secondary" id="auto-btn" onclick="toggleAuto()" title="Auto-read replies">
+            <i class="bi bi-volume-up-fill"></i>
+          </button>
+          <button class="btn btn-danger px-3" onclick="sendMsg()" id="send-btn">
+            <i class="bi bi-send-fill"></i>
+          </button>
+        </div>
+        <div class="d-flex justify-content-between mt-1">
+          <small class="text-muted" style="font-size:.7rem;">🎤 Speak EN/TE · 🔊 Listen · <kbd>Esc</kbd> stop</small>
+          <small class="text-muted" style="font-size:.7rem;">Auto-read: <span id="auto-lbl" style="color:#dc3545;font-weight:600;">OFF</span></small>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+<script>
+marked.setOptions({breaks:true,gfm:true});
+
+// ── State ─────────────────────────────────────────────────────────────────────
+const cw   = document.getElementById('chat-window');
+const inp  = document.getElementById('chat-input');
+let hist   = [], lang = 'en', autoRead = false;
+let speaking = false, listening = false, rec = null, ka = null;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const scroll = () => cw.scrollTop = cw.scrollHeight;
+
+function strip(t) {
+  return (t||'').replace(/[#*`|_~]/g,'').replace(/\n+/g,'. ').replace(/\s+/g,' ').trim();
+}
+
+function bar(msg, err) {
+  const b = document.getElementById('voice-bar');
+  document.getElementById('vbar-text').textContent = msg;
+  b.className = err ? 'err on' : 'on';
+  if (err) setTimeout(()=>b.className='',3000);
+}
+function barOff() { setTimeout(()=>document.getElementById('voice-bar').className='',1500); }
+
+// ── Language ──────────────────────────────────────────────────────────────────
+function setLang(l) {
+  lang = l;
+  document.getElementById('lang-en').classList.toggle('active', l==='en');
+  document.getElementById('lang-te').classList.toggle('active', l==='te');
+  document.getElementById('qt-en').style.display = l==='en' ? '' : 'none';
+  document.getElementById('qt-te').style.display = l==='te' ? '' : 'none';
+  inp.placeholder = l==='te' ? 'తెలుగులో టైప్ చేయండి లేదా 🎤 నొక్కండి…' : 'Type or click 🎤 to speak…';
+  stopAll();
+  setTimeout(()=>doSpeak(l==='te'?'నమస్కారం! నేను తెలుగులో మాట్లాడతాను.':'Hello! Switched to English.'), 300);
+}
+
+// ── Append message ────────────────────────────────────────────────────────────
+function addMsg(role, text, time) {
+  const w = document.createElement('div'); w.className = `msg-wrap ${role}`;
+  const b = document.createElement('div'); b.className = `msg-bubble msg-${role==='user'?'user':'bot'}`;
+  if (role==='user') b.textContent = text; else b.innerHTML = marked.parse(text);
+  const ts = document.createElement('div'); ts.className = 'msg-time text-muted';
+  ts.textContent = time || new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  if (role==='bot') {
+    const lb = document.createElement('button');
+    lb.className = 'listen-btn'; lb.innerHTML = '🔊 Listen';
+    lb.onclick = () => doSpeak(strip(text), lb);
+    ts.appendChild(lb);
+    const wa = document.createElement('a');
+    wa.target='_blank';
+    wa.style.cssText='display:inline-flex;align-items:center;gap:4px;background:#25D366;color:#fff;padding:2px 10px;border-radius:12px;font-size:.72rem;font-weight:600;text-decoration:none;';
+    wa.innerHTML='<i class="bi bi-whatsapp"></i> Share';
+    wa.href='https://wa.me/?text='+encodeURIComponent('🤖 ARIA:\n\n'+strip(text).slice(0,800)+'\n\n🚔 100 | 🚒 101 | 🚑 108');
+    ts.appendChild(wa);
+  }
+  w.appendChild(b); w.appendChild(ts); cw.appendChild(w); scroll();
+}
+
+function typing(show) {
+  const e = document.getElementById('typing');
+  if (show) {
+    if (e) return;
+    const w = document.createElement('div'); w.className='msg-wrap bot'; w.id='typing';
+    w.innerHTML='<div class="msg-bubble msg-bot" style="padding:.5rem .9rem;"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>';
+    cw.appendChild(w); scroll();
+  } else { if (e) e.remove(); }
+}
+
+// ── Send ──────────────────────────────────────────────────────────────────────
+async function sendMsg() {
+  const text = inp.value.trim(); if (!text) return;
+  inp.value=''; inp.disabled=true; document.getElementById('send-btn').disabled=true;
+  addMsg('user', text); hist.push({role:'user',content:text}); typing(true);
+  try {
+    const r = await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:text,history:hist.slice(-12),lang})});
+    const d = await r.json();
+    typing(false); addMsg('bot',d.reply,d.timestamp);
+    hist.push({role:'assistant',content:d.reply});
+    if (autoRead || lang==='te') doSpeak(strip(d.reply));
+  } catch(e) { typing(false); addMsg('bot','⚠️ Connection error. Please try again.'); }
+  finally { inp.disabled=false; document.getElementById('send-btn').disabled=false; inp.focus(); }
+}
+
+function sendQuick(t) { inp.value=t; sendMsg(); }
+
+function toggleAuto() {
+  autoRead=!autoRead;
+  const b=document.getElementById('auto-btn'), l=document.getElementById('auto-lbl');
+  b.classList.toggle('btn-outline-secondary',!autoRead); b.classList.toggle('btn-danger',autoRead);
+  l.textContent=autoRead?'ON':'OFF';
+}
+
+// ── TTS — Text to Voice ───────────────────────────────────────────────────────
+function stopSpeak() {
+  window.speechSynthesis.cancel(); speaking=false;
+  if (ka){clearInterval(ka);ka=null;}
+  document.querySelectorAll('.listen-btn.speaking').forEach(b=>{b.classList.remove('speaking');b.innerHTML='🔊 Listen';});
+}
+
+function doSpeak(text, btn) {
+  if (!('speechSynthesis' in window)) { alert('TTS not supported. Use Edge or Chrome.'); return; }
+  if (speaking) { stopSpeak(); return; }
+  const clean = strip(text); if (!clean) return;
+
+  const u = new SpeechSynthesisUtterance(clean);
+  u.volume = 1.0;
+  u.pitch  = 1.0;
+  u.rate   = lang==='te' ? 0.85 : 0.9;
+  u.lang   = lang==='te' ? 'te-IN' : 'en-IN';
+
+  u.onstart = () => {
+    speaking = true;
+    if (btn) { btn.classList.add('speaking'); btn.innerHTML='⏹️ Stop'; }
+    bar('🔊 Speaking in '+(lang==='te'?'Telugu':'English')+'…');
+    ka = setInterval(()=>{ if(window.speechSynthesis.speaking){window.speechSynthesis.pause();window.speechSynthesis.resume();} },10000);
+  };
+  const done = () => {
+    speaking=false;
+    if (btn){btn.classList.remove('speaking');btn.innerHTML='🔊 Listen';}
+    if (ka){clearInterval(ka);ka=null;} barOff();
+  };
+  u.onend = done;
+  u.onerror = (e) => {
+    done();
+    if (e.error!=='interrupted'&&e.error!=='canceled') {
+      console.warn('TTS error:',e.error);
+      // Retry without lang if language-unavailable
+      if (e.error==='language-unavailable'||e.error==='synthesis-failed') {
+        const u2=new SpeechSynthesisUtterance(clean);
+        u2.volume=1.0; u2.rate=0.9;
+        u2.onstart=u.onstart; u2.onend=done; u2.onerror=()=>done();
+        window.speechSynthesis.cancel();
+        setTimeout(()=>window.speechSynthesis.speak(u2),200);
+      }
+    }
+  };
+
+  window.speechSynthesis.cancel();
+  setTimeout(()=>window.speechSynthesis.speak(u), 200);
+}
+
+// ── STT — Voice to Text ───────────────────────────────────────────────────────
+function stopMic() {
+  listening=false;
+  const b=document.getElementById('mic-btn');
+  b.classList.remove('listening'); b.innerHTML='<i class="bi bi-mic-fill"></i>';
+  barOff();
+}
+
+function toggleMic() {
+  if (!('SpeechRecognition' in window||'webkitSpeechRecognition' in window)) {
+    bar('❌ Voice input not supported. Use Edge or Chrome.',true); return;
+  }
+  if (listening) { if(rec)rec.stop(); stopMic(); return; }
+  stopSpeak();
+  const SR = window.SpeechRecognition||window.webkitSpeechRecognition;
+  rec = new SR();
+  rec.continuous=false; rec.interimResults=true;
+  rec.lang = lang==='te' ? 'te-IN' : 'en-IN';
+
+  rec.onstart = () => {
+    listening=true;
+    const b=document.getElementById('mic-btn');
+    b.classList.add('listening');
+    b.innerHTML='<i class="bi bi-mic-fill"></i><span style="font-size:.68rem;margin-left:3px;">Listening…</span>';
+    bar('🎤 Listening in '+(lang==='te'?'Telugu':'English')+'… Speak now');
+  };
+  rec.onresult = (e) => {
+    let interim='',final='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const t=e.results[i][0].transcript;
+      if(e.results[i].isFinal)final+=t; else interim+=t;
+    }
+    inp.value=final||interim;
+    if(final) bar('✅ Heard: "'+final.slice(0,50)+'"');
+  };
+  rec.onerror = (e) => {
+    const m={'no-speech':'No speech detected.','not-allowed':'Mic access denied — allow in browser settings.','audio-capture':'Microphone not found.','network':'Network error.'};
+    bar('❌ '+(m[e.error]||e.error),true); stopMic();
+  };
+  rec.onend = () => { stopMic(); if(inp.value.trim()) setTimeout(sendMsg,300); };
+  try { rec.start(); } catch(e) { bar('❌ Mic error: '+e.message,true); }
+}
+
+// ── Stop All ──────────────────────────────────────────────────────────────────
+function stopAll() {
+  stopSpeak();
+  if(listening&&rec)rec.stop();
+  stopMic();
+  bar('⏹️ Stopped');
+  setTimeout(()=>document.getElementById('voice-bar').className='',1000);
+}
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if(e.ctrlKey&&e.key==='m'){e.preventDefault();toggleMic();}
+  if(e.key==='Escape')stopAll();
+});
+
+// Unlock TTS on first click (required by browsers)
+document.addEventListener('click',()=>{
+  if('speechSynthesis' in window){
+    const u=new SpeechSynthesisUtterance('');u.volume=0;
+    window.speechSynthesis.speak(u);
+  }
+},{once:true});
+</script>
+{% endblock %}

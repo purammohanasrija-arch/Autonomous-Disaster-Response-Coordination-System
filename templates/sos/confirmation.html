@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% block title %}SOS Sent{% endblock %}
+
+{% block head %}
+<style>
+  .sos-confirm-icon {
+    width: 100px; height: 100px;
+    background: #dc3545;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 1.5rem;
+    animation: sos-ring 1.5s ease-in-out infinite;
+  }
+  @keyframes sos-ring {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220,53,69,.5); }
+    50%       { box-shadow: 0 0 0 20px rgba(220,53,69,0); }
+  }
+  .step-item {
+    display: flex; align-items: center; gap: 1rem;
+    padding: .75rem 0; border-bottom: 1px solid #f0f0f0;
+  }
+  .step-item:last-child { border-bottom: none; }
+  .step-num {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: #dc3545; color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; flex-shrink: 0;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6 text-center">
+
+    <div class="sos-confirm-icon">
+      <i class="bi bi-check-lg text-white" style="font-size:3rem;"></i>
+    </div>
+
+    <h2 class="fw-bold text-danger mb-1">SOS Alert Sent!</h2>
+    <p class="text-muted mb-4">Emergency responders have been notified. Stay calm and stay safe.</p>
+
+    {% if sos %}
+    <div class="card border-danger border-2 shadow-sm mb-4 text-start">
+      <div class="card-header bg-danger text-white fw-semibold">
+        <i class="bi bi-sos me-2"></i>Your SOS Details
+      </div>
+      <div class="card-body">
+        <table class="table table-borderless mb-0">
+          <tr><th style="width:130px">Type</th><td><span class="badge bg-danger">{{ sos.sos_type }}</span></td></tr>
+          <tr><th>Location</th><td>{{ sos.location }}</td></tr>
+          <tr><th>People</th><td>{{ sos.people }}</td></tr>
+          <tr><th>Message</th><td>{{ sos.message }}</td></tr>
+          <tr><th>Status</th><td><span class="badge bg-warning text-dark">{{ sos.status }}</span></td></tr>
+          <tr><th>Sent At</th><td class="text-muted small">{{ sos.created_at[:19] }}</td></tr>
+          <tr><th>Reference</th><td class="text-muted small font-monospace">{{ sos._id }}</td></tr>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- What happens next -->
+    <div class="card border-0 shadow-sm mb-4 text-start">
+      <div class="card-header bg-white fw-semibold border-0 pt-3">
+        <i class="bi bi-list-check me-2 text-danger"></i>What Happens Next
+      </div>
+      <div class="card-body pt-0">
+        <div class="step-item">
+          <div class="step-num">1</div>
+          <div>Alert received by emergency coordination center</div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">2</div>
+          <div>Nearest rescue team dispatched to your location</div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">3</div>
+          <div>Resources allocated based on emergency type</div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">4</div>
+          <div>You will be contacted once help is on the way</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Emergency numbers -->
+    <div class="alert alert-warning text-start">
+      <strong><i class="bi bi-telephone-fill me-2"></i>Emergency Numbers</strong><br/>
+      <span class="me-3">🚒 Fire: <strong>101</strong></span>
+      <span class="me-3">🚑 Ambulance: <strong>108</strong></span>
+      <span>🚔 Police: <strong>100</strong></span>
+    </div>
+
+    <div class="d-flex gap-2 justify-content-center flex-wrap">
+      <a href="{{ url_for('dashboard.index') }}" class="btn btn-danger px-4">
+        <i class="bi bi-speedometer2 me-1"></i>Dashboard
+      </a>
+      <a href="{{ url_for('sos.submit') }}" class="btn btn-outline-danger px-4">
+        <i class="bi bi-sos me-1"></i>New SOS
+      </a>
+      {% if sos %}
+      <!-- WhatsApp share — opens WhatsApp with SOS details, works for ANY number -->
+      <a href="https://wa.me/?text={{ ('🆘 SOS ALERT%0AType: ' + sos.sos_type + '%0ALocation: ' + sos.location + '%0AMessage: ' + sos.message + '%0A%0A🚔 Police: 100 | 🚒 Fire: 101 | 🚑 Ambulance: 108') }}"
+         target="_blank" class="btn btn-success px-4">
+        <i class="bi bi-whatsapp me-1"></i>Share on WhatsApp
+      </a>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Play siren on confirmation page
+window.addEventListener('load', () => {
+  try {
+    const audio = new Audio('/static/sounds/sos_alarm.mp3');
+    audio.volume = 0.8;
+    audio.play().catch(() => sosAlarm(4));
+  } catch(e) { sosAlarm(4); }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,404 @@
+{% extends 'base.html' %}
+{% block title %}Send SOS Alert{% endblock %}
+
+{% block head %}
+<style>
+  .sos-header {
+    background: linear-gradient(135deg,#dc3545,#a71d2a);
+    animation: sos-pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes sos-pulse {
+    0%,100%{box-shadow:0 0 0 0 rgba(220,53,69,.5);}
+    50%{box-shadow:0 0 0 12px rgba(220,53,69,0);}
+  }
+  #sos-sug {
+    position:absolute; top:100%; left:0; right:0; z-index:1050;
+    background:#fff; border:1px solid #dee2e6; border-top:none;
+    border-radius:0 0 .5rem .5rem; max-height:260px; overflow-y:auto;
+    box-shadow:0 6px 20px rgba(0,0,0,.15); display:none;
+  }
+  .sug-item {
+    padding:.65rem 1rem; cursor:pointer; font-size:.86rem;
+    border-bottom:1px solid #f0f0f0; display:flex; gap:.6rem;
+  }
+  .sug-item:hover { background:#fff5f5; }
+  .sug-item:last-child { border-bottom:none; }
+  .sug-main { font-weight:600; font-size:.87rem; }
+  .sug-sub  { font-size:.74rem; color:#6c757d; }
+  .sug-type {
+    font-size:.68rem; background:#e9ecef; color:#495057;
+    padding:1px 6px; border-radius:8px; display:inline-block; margin-top:2px;
+  }
+  #coords-badge { display:none; font-size:.78rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+
+    <div class="sos-header text-white rounded-top p-4 text-center mb-0">
+      <div class="display-4 fw-black mb-1">🆘 SOS</div>
+      <h5 class="mb-0 fw-semibold">Emergency Alert</h5>
+      <p class="mb-0 opacity-75 small">Fill in the details below. Help will be dispatched immediately.</p>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-top-0">
+      <div class="card-body p-4">
+        <form method="POST" id="sos-form">
+
+          <!-- Emergency Type -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Emergency Type <span class="text-danger">*</span></label>
+            <div class="row g-2">
+              {% for label, icon, color in [
+                ('Medical Emergency','bi-heart-pulse-fill','danger'),
+                ('Trapped / Stuck','bi-person-exclamation','warning'),
+                ('Fire','bi-fire','danger'),
+                ('Flood','bi-water','primary'),
+                ('Earthquake','bi-house-exclamation','secondary'),
+                ('General Emergency','bi-exclamation-octagon','dark'),
+              ] %}
+              <div class="col-6 col-md-4">
+                <input type="radio" class="btn-check" name="sos_type"
+                       id="type-{{ loop.index }}" value="{{ label }}"
+                       {% if label=='General Emergency' %}checked{% endif %}/>
+                <label class="btn btn-outline-{{ color }} w-100 text-start py-2 px-3"
+                       for="type-{{ loop.index }}">
+                  <i class="bi {{ icon }} me-2"></i>{{ label }}
+                </label>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- Name -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Your Name</label>
+            <input type="text" name="name" class="form-control"
+                   value="{{ current_user.username }}"/>
+          </div>
+
+          <!-- Location search -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">
+              Your Location <span class="text-danger">*</span>
+            </label>
+            <div style="position:relative;">
+              <div class="input-group">
+                <span class="input-group-text bg-danger text-white border-danger">
+                  <i class="bi bi-geo-alt-fill"></i>
+                </span>
+                <input type="text" id="sos-location" name="location"
+                       class="form-control border-danger"
+                       placeholder="Search any village, mandal, city, street…"
+                       autocomplete="off" required/>
+                <button type="button" class="btn btn-outline-danger" id="gps-btn">
+                  <i class="bi bi-crosshair"></i>
+                </button>
+              </div>
+              <div id="sos-sug"></div>
+            </div>
+            <div class="mt-1">
+              <span id="coords-badge"
+                    class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                <i class="bi bi-geo-fill me-1"></i><span id="coords-text"></span>
+              </span>
+            </div>
+          </div>
+
+          <input type="hidden" name="lat" id="lat-input"/>
+          <input type="hidden" name="lng" id="lng-input"/>
+
+          <!-- People -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">People Needing Help</label>
+            <select name="people" class="form-select">
+              <option value="1">Just me (1)</option>
+              <option value="2-5">Small group (2–5)</option>
+              <option value="6-20">Medium group (6–20)</option>
+              <option value="20+">Large group (20+)</option>
+            </select>
+          </div>
+
+          <!-- WhatsApp recipient -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">
+              <i class="bi bi-whatsapp text-success me-1"></i>
+              Send WhatsApp Alert To
+              <span class="text-muted small fw-normal">(any phone number)</span>
+            </label>
+            <div class="input-group">
+              <span class="input-group-text bg-success text-white border-success">
+                <i class="bi bi-whatsapp"></i>
+              </span>
+              <input type="tel" name="recipient_phone" class="form-control"
+                     placeholder="+91XXXXXXXXXX or any number with country code"
+                     value="{{ current_user.phone if current_user.phone else '' }}"/>
+            </div>
+            <small class="text-muted">
+              Leave blank to send to all registered users only.
+              Add any number to also alert that person on WhatsApp.
+            </small>
+          </div>
+
+          <!-- Message -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">
+              Describe Your Emergency <span class="text-danger">*</span>
+            </label>
+            <textarea name="message" class="form-control" rows="3"
+                      placeholder="e.g. Trapped on 3rd floor. Building flooding. Need immediate rescue."
+                      required></textarea>
+          </div>
+
+          <!-- Google Maps preview (shown after location selected) -->
+          <div class="mb-3" id="gmap-preview-wrap" style="display:none;">
+            <label class="form-label fw-semibold">
+              Location Preview
+              <a id="open-gmaps" href="https://maps.google.com" target="_blank"
+                 class="btn btn-sm btn-outline-success ms-2">
+                <i class="bi bi-box-arrow-up-right me-1"></i>Open in Google Maps
+              </a>
+            </label>
+            <iframe id="gmap-preview"
+                    style="width:100%;height:220px;border:2px solid #dc3545;border-radius:.5rem;"
+                    allowfullscreen loading="lazy"></iframe>
+          </div>
+
+          <button type="submit" class="btn btn-danger btn-lg w-100 fw-bold py-3"
+                  onclick="return confirmSOS()">
+            <i class="bi bi-sos me-2 fs-5"></i>SEND SOS ALERT NOW
+          </button>
+
+          <!-- WhatsApp Share button (opens WhatsApp with pre-filled message) -->
+          <button type="button" class="btn btn-success w-100 mt-2 fw-bold"
+                  id="wa-share-btn" onclick="shareOnWhatsApp()" style="display:none;">
+            <i class="bi bi-whatsapp me-2"></i>Share on WhatsApp
+          </button>
+
+          <a href="{{ url_for('dashboard.index') }}"
+             class="btn btn-outline-secondary w-100 mt-2">Cancel</a>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Map (OSM — shows every village) ──────────────────────────────────────────
+const map = L.map('sos-map', { maxZoom:19 }).setView([20, 78], 5);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  { attribution:'© OpenStreetMap contributors', maxZoom:19 }).addTo(map);
+L.control.scale({ imperial:false }).addTo(map);
+
+let marker = null;
+
+function pinLocation(lat, lng, label) {
+  if (marker) map.removeLayer(marker);
+  const icon = L.divIcon({
+    className: '',
+    html: `<div style="width:22px;height:22px;border-radius:50%;
+               background:#dc3545;border:3px solid #fff;
+               box-shadow:0 0 12px rgba(220,53,69,.8);
+               animation:sos-pin 1s ease-in-out infinite;"></div>`,
+    iconAnchor: [11, 11]
+  });
+  marker = L.marker([lat, lng], { icon, draggable:true })
+    .addTo(map)
+    .bindPopup(label || 'Your location')
+    .openPopup();
+  marker.on('dragend', () => {
+    const p = marker.getLatLng();
+    setCoords(p.lat, p.lng);
+    reverseGeocode(p.lat, p.lng);
+  });
+  map.flyTo([lat, lng], 15, { animate:true, duration:1.2 });
+  setCoords(lat, lng);
+}
+
+function setCoords(lat, lng) {
+  document.getElementById('lat-input').value  = lat.toFixed(6);
+  document.getElementById('lng-input').value  = lng.toFixed(6);
+  document.getElementById('coords-text').textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  document.getElementById('coords-badge').style.display = 'inline-flex';
+}
+
+function reverseGeocode(lat, lng) {
+  fetch(
+    `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=18&addressdetails=1`,
+    { headers:{ 'Accept-Language':'en', 'User-Agent':'DisasterResponseApp/1.0' } }
+  ).then(r => r.json()).then(d => {
+    if (d && d.display_name)
+      document.getElementById('sos-location').value = d.display_name;
+  }).catch(() => {});
+}
+
+map.on('click', e => {
+  pinLocation(e.latlng.lat, e.latlng.lng);
+  reverseGeocode(e.latlng.lat, e.latlng.lng);
+});
+
+// ── Village-level search ──────────────────────────────────────────────────────
+const locInput = document.getElementById('sos-location');
+const sugBox   = document.getElementById('sos-sug');
+let timer = null;
+
+const TYPE_LABELS = {
+  village:'🏘️ Village', hamlet:'🏡 Hamlet', town:'🏙️ Town',
+  city:'🌆 City', suburb:'🏘️ Suburb', neighbourhood:'📍 Area',
+  county:'📌 District', road:'🛣️ Road',
+};
+
+function closeSug() { sugBox.style.display='none'; sugBox.innerHTML=''; }
+
+async function doSearch(q) {
+  sugBox.innerHTML = '<div class="sug-item text-muted"><i class="bi bi-hourglass-split me-2"></i>Searching…</div>';
+  sugBox.style.display = 'block';
+  try {
+    let url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=10&addressdetails=1&countrycodes=in`;
+    let data = await (await fetch(url, {
+      headers:{ 'Accept-Language':'en', 'User-Agent':'DisasterResponseApp/1.0' }
+    })).json();
+    if (!data.length) {
+      url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=10&addressdetails=1`;
+      data = await (await fetch(url, {
+        headers:{ 'Accept-Language':'en', 'User-Agent':'DisasterResponseApp/1.0' }
+      })).json();
+    }
+    sugBox.innerHTML = '';
+    if (!data.length) {
+      sugBox.innerHTML = '<div class="sug-item text-muted">No results. Try adding state name.</div>';
+      return;
+    }
+    data.forEach(item => {
+      const addr  = item.address || {};
+      const type  = item.type || item.class || '';
+      const label = TYPE_LABELS[type] || '📍 Place';
+      const main  = addr.village || addr.hamlet || addr.town ||
+                    addr.city    || addr.suburb  || item.display_name.split(', ')[0];
+      const sub   = [addr.county || addr.state_district, addr.state]
+                    .filter(Boolean).join(', ');
+      const div = document.createElement('div');
+      div.className = 'sug-item';
+      div.innerHTML = `
+        <i class="bi bi-geo-alt-fill text-danger mt-1" style="flex-shrink:0;"></i>
+        <div>
+          <div class="sug-main">${main}</div>
+          <div class="sug-sub">${sub}</div>
+          <span class="sug-type">${label}</span>
+        </div>`;
+      div.addEventListener('mousedown', e => {
+        e.preventDefault();
+        locInput.value = item.display_name;
+        const zoom = ['village','hamlet'].includes(type) ? 15 : 13;
+        pinLocation(parseFloat(item.lat), parseFloat(item.lon), item.display_name);
+        map.setZoom(zoom);
+        closeSug();
+      });
+      sugBox.appendChild(div);
+    });
+  } catch(e) { closeSug(); }
+}
+
+locInput.addEventListener('input', () => {
+  clearTimeout(timer);
+  const q = locInput.value.trim();
+  if (q.length < 2) { closeSug(); return; }
+  timer = setTimeout(() => doSearch(q), 400);
+});
+locInput.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeSug();
+  if (e.key === 'Enter') { clearTimeout(timer); doSearch(locInput.value.trim()); }
+});
+locInput.addEventListener('blur', () => setTimeout(closeSug, 150));
+
+// ── GPS ───────────────────────────────────────────────────────────────────────
+document.getElementById('gps-btn').addEventListener('click', () => {
+  if (!navigator.geolocation) { alert('Geolocation not supported.'); return; }
+  const btn = document.getElementById('gps-btn');
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+  btn.disabled = true;
+  navigator.geolocation.getCurrentPosition(pos => {
+    const { latitude:lat, longitude:lng } = pos.coords;
+    pinLocation(lat, lng, 'Your Location');
+    reverseGeocode(lat, lng);
+    btn.innerHTML = '<i class="bi bi-crosshair"></i>';
+    btn.disabled = false;
+  }, () => {
+    alert('Could not get location. Please allow GPS access.');
+    btn.innerHTML = '<i class="bi bi-crosshair"></i>';
+    btn.disabled = false;
+  });
+});
+
+function confirmSOS() {
+  // Allow if location text is filled (lat/lng optional)
+  const locationText = document.getElementById('sos-location').value.trim();
+  if (!locationText) {
+    alert('Please enter your location first.');
+    document.getElementById('sos-location').focus();
+    return false;
+  }
+  const ok = confirm('⚠️ Send SOS Alert?\n\nThis will immediately notify emergency responders.\nOnly use in a real emergency.');
+  if (ok) {
+    playSOSSiren();
+    setTimeout(() => {
+      const wb = document.getElementById('wa-share-btn');
+      if (wb) wb.style.display = 'block';
+    }, 2000);
+  }
+  return ok;
+}
+
+// ── Real emergency siren using downloaded MP3 ─────────────────────────────────
+let sirenAudio = null;
+
+function playSOSSiren() {
+  try {
+    // Try MP3 first
+    sirenAudio = new Audio('/static/sounds/sos_alarm.mp3');
+    sirenAudio.volume = 1.0;
+    sirenAudio.loop   = false;
+    sirenAudio.play().catch(() => {
+      // Fallback to Web Audio API siren
+      sosAlarm(5);
+    });
+  } catch(e) {
+    sosAlarm(5);
+  }
+}
+
+function stopSOSSiren() {
+  if (sirenAudio) { sirenAudio.pause(); sirenAudio.currentTime = 0; }
+  stopAllSounds();
+}
+
+// ── WhatsApp share (opens WhatsApp with pre-filled SOS message) ───────────────
+function shareOnWhatsApp() {
+  const location = document.getElementById('sos-location').value || 'Unknown location';
+  const message  = document.querySelector('textarea[name="message"]')?.value || '';
+  const sosType  = document.querySelector('input[name="sos_type"]:checked')?.value || 'Emergency';
+  const phone    = document.querySelector('input[name="recipient_phone"]')?.value || '';
+
+  const text = encodeURIComponent(
+    `🆘 SOS ALERT\n\nType: ${sosType}\nLocation: ${location}\nMessage: ${message}\n\n🚔 Police: 100 | 🚒 Fire: 101 | 🚑 Ambulance: 108`
+  );
+
+  let url;
+  if (phone) {
+    const clean = phone.replace(/[^0-9]/g, '');
+    url = `https://wa.me/${clean}?text=${text}`;
+  } else {
+    url = `https://wa.me/?text=${text}`;
+  }
+  window.open(url, '_blank');
+}
+
+const st = document.createElement('style');
+st.textContent = `@keyframes sos-pin{0%,100%{box-shadow:0 0 0 0 rgba(220,53,69,.8);}50%{box-shadow:0 0 0 14px rgba(220,53,69,0);}}`;
+document.head.appendChild(st);
+</script>
+{% endblock %}
