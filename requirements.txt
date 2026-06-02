@@ -1,47 +1,11 @@
-| Library | Version | Purpose |
-|---------|---------|---------|
-| **Flask** | 3.0.3 | Web framework — routes, templates, request handling |
-| **Flask-Login** | 0.6.3 | User session management, login/logout, `@login_required` |
-| **Werkzeug** | 3.0.3 | Password hashing (`generate_password_hash`, `check_password_hash`) |
-| **PyMongo** | 4.7.3 | MongoDB driver — all database operations |
-| **dnspython** | 2.6.1 | DNS resolution for MongoDB Atlas connection strings |
-| **groq** | 0.9.0 | Groq API client — runs Llama 3 AI model for disaster analysis and chatbot |
-| **python-dotenv** | 1.0.1 | Loads `.env` file into environment variables |
-| **pyotp** | 2.9.0 | Generates 6-digit OTP codes for 2FA |
-| **requests** | 2.34.2 | HTTP calls to OpenWeatherMap API and Nominatim geocoding |
-| **twilio** | 9.10.9 | WhatsApp messaging API |
-| **bson** | (via pymongo) | MongoDB ObjectId handling |
-| **smtplib** | (built-in) | Gmail SMTP for sending OTP emails |
-| **threading** | (built-in) | Background threads for async WhatsApp sending |
-| **collections** | (built-in) | `Counter` for analytics aggregation |
-
----
-
-## JavaScript Libraries (Frontend)
-
-| Library | Version | Purpose |
-|---------|---------|---------|
-| **Bootstrap** | 5.3.2 | CSS framework — responsive layout, cards, buttons, badges |
-| **Bootstrap Icons** | 1.11.3 | Icon set used throughout the UI |
-| **Leaflet.js** | 1.9.4 | Interactive maps — disaster incident markers, SOS pins |
-| **Leaflet.MarkerCluster** | 1.5.3 | Groups nearby map markers into clusters |
-| **Chart.js** | 4.4.2 | Analytics charts — bar, line, doughnut, polar area |
-| **marked.js** | 9.1.6 | Renders Markdown in chatbot replies |
-| **jsPDF** | 2.5.1 | Generates PDF reports in the browser |
-| **Web Speech API** | (browser built-in) | Voice input (STT) and voice output (TTS) for ARIA chatbot |
-| **Web Audio API** | (browser built-in) | Emergency siren sound for SOS alerts |
-
----
-
-## External APIs / Services
-
-| Service | Purpose |
-|---------|---------|
-| **Groq API** (Llama 3 8B) | AI-powered disaster analysis and bilingual chatbot |
-| **OpenWeatherMap API** | Live weather data, 5-day forecast, disaster risk assessment |
-| **Nominatim** (OpenStreetMap) | Geocoding — converts city/village names to lat/lng |
-| **OpenStreetMap tiles** | Map tile rendering (CartoDB Voyager, Esri Satellite) |
-| **Gmail SMTP** | Sends OTP emails to any email address |
-| **Twilio WhatsApp** | Sends SOS alerts, broadcasts, volunteer confirmations via WhatsApp |
-| **wa.me** | WhatsApp share links — opens WhatsApp with pre-filled messages |
-
+Flask==3.0.3
+Flask-Login==0.6.3
+Werkzeug==3.0.3
+pymongo==4.7.3
+dnspython==2.6.1
+groq==0.9.0
+python-dotenv==1.0.1
+pyotp==2.9.0
+requests==2.32.3
+twilio==9.10.9
+gunicorn==22.0.0
