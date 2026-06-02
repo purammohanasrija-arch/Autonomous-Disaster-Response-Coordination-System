@@ -5,3 +5,5 @@ pymongo==4.7.3
 dnspython==2.6.1
 groq==0.9.0
 python-dotenv==1.0.1
+urllib
+requests
